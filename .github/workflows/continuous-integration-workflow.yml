@@ -126,3 +126,11 @@ jobs:
             build.log
             .config
         if: ${{ always() }}
+      - name: "tar output"
+        run: |
+          tar -cf ${{ matrix.sample }}.tar -C x-tools .
+      - name: "upload ${{ matrix.sample }}.tar toolchain"
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.sample }}.${{ matrix.host }}
+          path: ${{ matrix.sample }}.tar
