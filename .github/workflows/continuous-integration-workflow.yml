@@ -37,23 +37,8 @@ jobs:
     strategy:
       matrix:
         sample: [
-          "aarch64-unknown-linux-gnu",
-          "arc-multilib-linux-uclibc",
-          "arm-picolibc-eabi",
-          "arm-unknown-linux-gnueabi",
-          "armv6-nommu-linux-uclibcgnueabi",
-          "mips-unknown-elf",
-          "mips64-unknown-linux-gnu",
-          "powerpc-unknown-linux-gnu",
-          "powerpc64-unknown-linux-gnu",
-          "riscv32-unknown-elf",
-          "riscv64-unknown-elf",
-          "s390-unknown-linux-gnu",
-          "sh-multilib-linux-gnu",
-          "sparc-unknown-linux-gnu",
-          "x86_64-unknown-linux-gnu",
-          "x86_64-multilib-linux-uclibc",
-          "xtensa-fsf-linux-uclibc"
+          "arc-zephyr-elf",
+          "arm-zephyr-eabi",
         ]
     steps:
       - name: "download ct-ng"
