@@ -1,0 +1,201 @@
+name: CI-mac
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.target }} (${{ matrix.host.name }})
+    runs-on: ${{ matrix.host.build }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        host:
+        - name: macos-x86_64
+          build: macos-10.15
+          archive: tar.gz
+        target:
+        - arc-zephyr-elf
+        - arm-zephyr-eabi
+
+    steps:
+    # Set up build environment (macOS build system)
+    - name: Install dependency packages for macOS
+      if: ${{ runner.os == 'macOS' }}
+      run: |
+        brew install autoconf automake bash binutils boost gawk gnu-sed \
+                     gnu-tar help2man ncurses pkg-config
+
+    - name: Create case sensitive workspace volume for macOS
+      if: ${{ runner.os == 'macOS' }}
+      run: |
+        hdiutil create ${HOME}/Workspace.sparseimage -volname Workspace -type SPARSE -size 14g -fs HFSX
+        hdiutil mount ${HOME}/Workspace.sparseimage
+
+    # Check out source code
+    - name: Check out source code
+      uses: actions/checkout@v2
+
+    # Fetch all history for all tags and branches
+    - run: git fetch --prune --unshallow --tags --force
+
+    # Build crosstool-ng
+    - name: Build crosstool-ng
+      run: |
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          export PATH="$PATH:/usr/local/opt/binutils/bin"
+          export CPPFLAGS="-I/usr/local/opt/ncurses/include -I/usr/local/opt/gettext/include"
+          export LDFLAGS="-L/usr/local/opt/ncurses/lib -L/usr/local/opt/gettext/lib"
+        fi
+
+        ./bootstrap
+        ./configure --prefix=${HOME}/crosstool-ng
+        make
+        make install
+
+    - name: Test crosstool-ng
+      run: |
+        ${HOME}/crosstool-ng/bin/ct-ng version
+
+    # Build toolchain
+    - name: Build ${{ matrix.target }} toolchain for ${{ matrix.host.name }}
+      run: |
+        export CT_NG="${HOME}/crosstool-ng/bin/ct-ng"
+
+        # Resolve GNU tar name
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          export TAR="gtar"
+        else
+          export TAR="tar"
+        fi
+
+        # Resolve workspace path
+        if [ "$RUNNER_OS" == "macOS" ]; then
+          export WORKSPACE="/Volumes/Workspace"
+        else
+          export WORKSPACE="${HOME}"
+        fi
+
+        # Set output path
+        export CT_PREFIX="${WORKSPACE}/output"
+
+        # Create build directory
+        mkdir -p ${WORKSPACE}/build
+        pushd ${WORKSPACE}/build
+
+        # Load default target configurations
+        ${CT_NG} ${{ matrix.target }}
+
+        # Set build configurations
+        cat <<EOF >> .config
+        CT_LOCAL_TARBALLS_DIR="${HOME}/sources"
+        CT_CLEAN_AFTER_BUILD_STEP=y
+        EOF
+
+        # Set logging configurations
+        cat <<EOF >> .config
+        CT_LOG_PROGRESS_BAR=n
+        CT_LOG_EXTRA=n
+        CT_LOG_ALL=y
+        CT_LOG_LEVEL_MAX="ALL"
+        EOF
+
+        # Set Windows Canadian cross compilation configurations
+        if [ "${{ matrix.host.name }}" == "windows-x86_64" ]; then
+          cat <<EOF >> .config
+        CT_CANADIAN=y
+        CT_HOST="x86_64-w64-mingw32"
+        EOF
+        fi
+
+        # Configure Windows Python library
+        if [ "${{ matrix.host.name }}" == "windows-x86_64" ]; then
+          # Clone mingw-w64-libpython cross compilation kit
+          git clone \
+            https://github.com/stephanosio/mingw-w64-libpython.git \
+            ${WORKSPACE}/mingw-w64-libpython
+
+          # Use Python 3.6.8
+          export LIBPYTHON_KIT_ROOT=${WORKSPACE}/mingw-w64-libpython/python-3.6.8
+
+          # Set Python configuration resolver for GDB
+          cat <<EOF >> .config
+        CT_GDB_CROSS_PYTHON_BINARY="${LIBPYTHON_KIT_ROOT}/bin/python"
+        EOF
+        fi
+
+        # Merge configurations
+        ${CT_NG} savedefconfig DEFCONFIG=build.config
+        ${CT_NG} distclean
+        ${CT_NG} defconfig DEFCONFIG=build.config
+
+        # Build
+        ${CT_NG} build
+        popd
+
+        # Resolve output directory path
+        if [ "${{ matrix.host.name }}" == "windows-x86_64" ]; then
+          export OUTPUT_BASE="${WORKSPACE}/output"
+          export OUTPUT_DIR="HOST-x86_64-w64-mingw32"
+        else
+          export OUTPUT_BASE="${WORKSPACE}"
+          export OUTPUT_DIR="output"
+        fi
+
+        # Grant write permission for owner
+        chmod -R u+w ${OUTPUT_BASE}/${OUTPUT_DIR}
+
+        # Rename Windows output directory to "output" for consistency
+        if [ "${{ matrix.host.name }}" == "windows-x86_64" ]; then
+          mv ${OUTPUT_BASE}/${OUTPUT_DIR} ${OUTPUT_BASE}/output
+          export OUTPUT_DIR="output"
+        fi
+
+        # Rename output directory to tag name if release build
+        if [ "${{ github.event_name }}" == "release" ]; then
+          mv ${OUTPUT_BASE}/${OUTPUT_DIR} ${OUTPUT_BASE}/${{ github.event.release.tag_name }}
+          export OUTPUT_DIR="${{ github.event.release.tag_name }}"
+        fi
+
+        # Move build log file out of workspace
+        mv ${OUTPUT_BASE}/${OUTPUT_DIR}/${{ matrix.target }}/build.log.bz2 \
+           ${{ matrix.target }}.log.bz2
+
+        # Create archive
+        if [ "${{ matrix.host.archive }}" == "tar.gz" ]; then
+          ${TAR} -zcvf ${{ matrix.target }}.tar.gz --owner=0 --group=0 \
+                 -C ${OUTPUT_BASE} ${OUTPUT_DIR}
+        else
+          pushd ${OUTPUT_BASE}
+          zip -r ${GITHUB_WORKSPACE}/${{ matrix.target }}.zip ${OUTPUT_DIR}
+          popd
+        fi
+
+    # Upload build log
+    - name: Upload build log
+      uses: actions/upload-artifact@v2
+      with:
+        name: log_${{ matrix.host.name }}_${{ matrix.target }}
+        path: ${{ matrix.target }}.log.bz2
+
+    # Upload build artifact
+    - name: Upload build artifact
+      if: github.event_name != 'release'
+      uses: actions/upload-artifact@v2
+      with:
+        name: toolchain_${{ matrix.host.name }}_${{ matrix.target }}
+        path: ${{ matrix.target }}.${{ matrix.host.archive }}
+
+    # Upload release asset
+    - name: Upload release asset
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ matrix.target }}.${{ matrix.host.archive }}
+        asset_name: ${{ github.event.release.tag_name }}_${{ matrix.host.name }}_${{ matrix.target }}.${{ matrix.host.archive }}
+        asset_content_type: application/octet-stream
