@@ -75,7 +75,7 @@ jobs:
         run: |
           cd ..
           rmdir crosstool-ng
-          hdiutil create ${HOME}/Workspace.sparseimage -volname crosstool-ng -type SPARSE -size 16g -fs HFSX
+          hdiutil create ${HOME}/Workspace.sparseimage -volname crosstool-ng -type SPARSE -size 20g -fs HFSX
           hdiutil mount ${HOME}/Workspace.sparseimage -mountroot /Users/runner/work/crosstool-ng
           cd crosstool-ng
       - name: "download ct-ng"
