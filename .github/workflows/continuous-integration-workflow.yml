@@ -10,8 +10,7 @@ jobs:
     strategy:
       matrix:
         host: [
-          "ubuntu-latest",
-          "macos-10.15",
+          "macos-11.0",
         ]
     steps:
       - name: "clone"
@@ -66,8 +65,7 @@ jobs:
       fail-fast: false
       matrix:
         host: [
-          "ubuntu-latest",
-          "macos-10.15",
+          "macos-11.0",
         ]
         sample: [
           "arc-zephyr-elf",
@@ -77,7 +75,7 @@ jobs:
           # Exclude mips64-*-linux-gnu because of <byteswap.h> usage in
           # elf-entry.c for linux kernel headers.  <byteswap.h> is a GNU
           # extension and doesn't exist on MacOS X
-          - host: "macos-10.15"
+          - host: "macos-11.0"
             sample: "mips64-unknown-linux-gnu"
     steps:
       - name: Create case sensitive workspace volume for macOS
