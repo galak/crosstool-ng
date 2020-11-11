@@ -10,7 +10,6 @@ jobs:
     strategy:
       matrix:
         host: [
-          "ubuntu-latest",
           "macos-10.15",
         ]
     steps:
@@ -56,27 +55,12 @@ jobs:
       fail-fast: false
       matrix:
         host: [
-          "ubuntu-latest",
           "macos-10.15",
         ]
         sample: [
           "aarch64-unknown-linux-gnu",
-          "arc-multilib-linux-uclibc",
-          "arm-picolibc-eabi",
-          "arm-unknown-linux-gnueabi",
-          "armv6-nommu-linux-uclibcgnueabi",
-          "mips-unknown-elf",
           "mips64-unknown-linux-gnu",
-          "powerpc-unknown-linux-gnu",
-          "powerpc64-unknown-linux-gnu",
-          "riscv32-unknown-elf",
-          "riscv64-unknown-elf",
-          "s390-unknown-linux-gnu",
           "sh-multilib-linux-gnu",
-          "sparc-unknown-linux-gnu",
-          "x86_64-unknown-linux-gnu",
-          "x86_64-multilib-linux-uclibc",
-          "xtensa-fsf-linux-uclibc"
         ]
     steps:
       - name: Create case sensitive workspace volume for macOS
