@@ -20,6 +20,16 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get install -y gperf help2man libtool-bin
+
+          df -h
+
+          sudo du -s -h /usr/share/*
+          sudo du -s -h /usr/lib/*
+          sudo du -s -h /usr/local/*
+          sudo du -s -h /var/*
+          sudo du -s -h /opt/*
+          sudo du -s -h /usr/*
+
       - name: "prereq macOS"
         if: ${{ runner.os == 'macOS' }}
         run: |
@@ -90,6 +100,22 @@ jobs:
         run: |
           sudo apt-get install -y gperf help2man libtool-bin
           sudo apt-get install -y --no-install-recommends python3.8-dev
+
+          df -h
+
+          sudo rm -rf "/usr/local/lib/android"
+
+          df -h
+
+          # Remove haskell ~8.6G
+          sudo rm -fr "/opt/ghc"
+
+          df -h
+
+          pwd $AGENT_TOOLSDIRECTORY
+          ls $AGENT_TOOLSDIRECTORY
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
           echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
       - name: "prereq macOS"
         if: ${{ runner.os == 'macOS' }}
